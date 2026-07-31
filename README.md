@@ -1,6 +1,6 @@
-# Orbit
+# Galaxy
 
-**Orbit** is an Obsidian plugin that visualizes your vault as an organized orbital cosmos, modeling your notes as orbiting nodes.
+**Galaxy** is an Obsidian plugin that visualizes your vault as an orbital 3D galaxy, modeling your notes as orbiting nodes.
 
 
 https://github.com/user-attachments/assets/e0af8fb8-a452-4c5b-987f-e62942bc2b92
