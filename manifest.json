@@ -1,0 +1,9 @@
+{
+	"id": "3d-galaxy-graph-view",
+	"name": "Galaxy",
+	"version": "1.0.0",
+	"minAppVersion": "1.7.2",
+	"description": "Visualize your notes as an 3D galaxy.",
+	"author": "studiogamma",
+	"isDesktopOnly": true
+}

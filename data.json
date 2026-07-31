@@ -1,0 +1,19 @@
+{
+  "siblingSortMode": "fileSize",
+  "keplerBaseOmega": 5,
+  "theme": "celestial",
+  "orbitDirection": "counterclockwise",
+  "parentSource": "tag",
+  "hideLoneNodes": false,
+  "hideSingleParentNodes": false,
+  "hideMultiParentNodes": false,
+  "fadeOtherNodes": true,
+  "dualParentOvalOrbit": true,
+  "orbitTraceStyle": "translucent",
+  "lineToParentStyle": "translucent",
+  "orbitRadiusScale": 1.5,
+  "galaxySize": 1.5,
+  "gravity": 1,
+  "galacticRotation": false,
+  "nodeSizeScale": 1
+}

@@ -1,0 +1,422 @@
+/* ========================================================================
+   Orbit — Solar System Graph View
+   ======================================================================== */
+
+.orbit-graph-container {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	position: relative;
+	background-color: #0a0a1a;
+}
+
+.orbit-graph-container canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	cursor: grab;
+}
+
+.orbit-graph-container canvas:active {
+	cursor: grabbing;
+}
+
+/* 3D graph container — 3d-force-graph injects its WebGL canvas here */
+.orbit-graph-3d-container {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+.orbit-graph-3d-container canvas {
+	display: block;
+	width: 100% !important;
+	height: 100% !important;
+}
+
+/* Ensure settings panel overlays the WebGL canvas */
+.orbit-graph-settings-panel {
+	z-index: 10;
+}
+
+.orbit-graph-settings-toggle {
+	z-index: 11;
+}
+
+/* Empty-state message when no nodes have gravity metadata */
+.orbit-graph-empty {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: rgba(255, 255, 255, 0.4);
+	font-size: 1rem;
+	text-align: center;
+	line-height: 1.6;
+	pointer-events: none;
+	user-select: none;
+}
+
+.orbit-graph-empty code {
+	color: rgba(255, 255, 255, 0.6);
+	background: rgba(255, 255, 255, 0.06);
+	padding: 0.15em 0.4em;
+	border-radius: 4px;
+	font-size: 0.9em;
+}
+
+/* ========================================================================
+   Floating Settings Panel
+   ======================================================================== */
+
+/* Settings Cog Button */
+.orbit-graph-settings-toggle {
+	position: absolute;
+	top: 15px;
+	right: 15px;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background-color: var(--background-secondary-alt);
+	border: 1px solid var(--border-color);
+	color: var(--text-normal);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+	transition: all 0.2s ease-in-out;
+	z-index: 10;
+	backdrop-filter: blur(10px);
+}
+
+.orbit-graph-settings-toggle:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+	transform: scale(1.05);
+}
+
+.orbit-graph-settings-toggle svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* Floating Settings Panel */
+.orbit-graph-settings-panel {
+	position: absolute;
+	top: 15px;
+	right: 15px;
+	max-height: calc(100% - 30px);
+	height: auto;
+	width: 250px;
+	background-color: var(--background-primary-alt);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	z-index: 15;
+	backdrop-filter: blur(15px);
+	transition: opacity 0.2s ease, transform 0.2s ease;
+	opacity: 1;
+	transform: translateX(0);
+}
+
+.orbit-graph-settings-panel.is-hidden {
+	opacity: 0;
+	transform: translateX(20px);
+	pointer-events: none;
+}
+
+/* Panel Header */
+.orbit-graph-settings-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--border-color);
+	background-color: var(--background-secondary-alt);
+	flex-shrink: 0;
+}
+
+.orbit-graph-settings-title {
+	font-weight: 500;
+	font-size: 0.9rem;
+	color: var(--text-normal);
+}
+
+.orbit-graph-settings-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.orbit-graph-settings-action-btn {
+	background-color: var(--background-primary-alt);
+	border: none;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.orbit-graph-settings-action-btn:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.orbit-graph-settings-action-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Panel Content */
+.orbit-graph-settings-content {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: visible;
+	padding: 4px 0;
+}
+
+/* Collapsible Section */
+.orbit-settings-section {
+	position: relative;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.orbit-settings-section:last-child {
+	border-bottom: none;
+}
+
+.orbit-settings-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	font-weight: 500;
+	font-size: 0.9rem;
+	color: var(--text-normal);
+	background-color: var(--background-secondary);
+	cursor: pointer;
+	user-select: none;
+	transition: background-color 0.1s ease;
+}
+
+.orbit-settings-section-title-container {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.orbit-settings-section-action {
+	display: flex;
+	align-items: center;
+}
+
+.orbit-settings-section-header-icon {
+	transition: transform 0.2s ease;
+	display: flex;
+	align-items: center;
+}
+
+.orbit-settings-section-header-icon.is-collapsed {
+	transform: rotate(-90deg);
+}
+
+/* Smooth Accordion Grid Transition */
+.orbit-settings-section-wrapper {
+	display: grid;
+	grid-template-rows: 1fr;
+	transition: grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.orbit-settings-section-wrapper.is-collapsed {
+	grid-template-rows: 0fr;
+}
+
+.orbit-settings-section-content {
+	overflow: hidden;
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.orbit-settings-section-wrapper:not(.is-collapsed) .orbit-settings-section-content {
+	overflow: visible;
+}
+
+.orbit-settings-section-wrapper.is-collapsed .orbit-settings-section-content {
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+/* Setting Items */
+.orbit-setting-item {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.orbit-setting-item-header {
+	display: flex;
+	flex-direction: column;
+}
+
+.orbit-setting-item-name {
+	font-size: 0.85rem;
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+.orbit-setting-item-desc {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.orbit-setting-item-control {
+	margin-top: 4px;
+}
+
+/* Styling native-looking elements */
+.orbit-setting-item-control select {
+	width: 100%;
+	padding: 6px 8px;
+	background-color: var(--background-secondary-alt);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	color: var(--text-normal);
+	font-size: 0.8rem;
+}
+
+.orbit-setting-item-control select:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.orbit-setting-slider-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.orbit-setting-slider-container input[type="range"] {
+	flex: 1;
+	accent-color: var(--interactive-accent);
+	cursor: pointer;
+}
+
+.orbit-setting-slider-value {
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--text-muted);
+	width: 32px;
+	text-align: right;
+}
+
+/* Checkbox settings */
+.orbit-setting-checkbox-container {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 4px 0;
+}
+
+.orbit-setting-checkbox-container input[type="checkbox"] {
+	margin-top: 4px;
+	cursor: pointer;
+	accent-color: var(--interactive-accent);
+}
+
+.orbit-setting-checkbox-label {
+	cursor: pointer;
+	user-select: none;
+}
+
+/* Node Focus Search Control */
+.orbit-search-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.orbit-search-input {
+	flex: 1;
+	padding: 6px 8px;
+	background-color: var(--background-secondary-alt);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	color: var(--text-normal);
+	font-size: 0.8rem;
+}
+
+.orbit-search-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.orbit-search-clear-btn {
+	background: none;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	cursor: pointer;
+	line-height: 1;
+}
+
+.orbit-search-clear-btn:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* Autocomplete Dropdown Popup */
+.orbit-autocomplete-dropdown {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	margin-top: 4px;
+	max-height: 180px;
+	overflow-y: auto;
+	background-color: var(--background-primary-alt);
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
+	z-index: 99999;
+}
+
+.orbit-autocomplete-dropdown.is-hidden {
+	display: none;
+}
+
+.orbit-autocomplete-item {
+	padding: 7px 10px;
+	font-size: 0.8rem;
+	color: var(--text-normal);
+	cursor: pointer;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: background-color 0.1s ease;
+}
+
+.orbit-autocomplete-item:hover,
+.orbit-autocomplete-item.is-highlighted {
+	background-color: var(--background-modifier-hover);
+	color: var(--interactive-accent);
+}
+
+

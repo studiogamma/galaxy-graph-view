@@ -1,0 +1,25 @@
+{
+	"name": "orbit-graph-view",
+	"version": "1.0.6",
+	"description": "Obsidian plugin — visualize notes as a recursive solar system",
+	"main": "main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+	},
+	"keywords": [],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^22.15.17",
+		"@types/three": "^0.185.1",
+		"esbuild": "0.25.5",
+		"obsidian": "latest",
+		"typescript": "^5.8.3"
+	},
+	"dependencies": {
+		"3d-force-graph": "^1.80.0",
+		"three": "^0.185.1",
+		"three-spritetext": "^1.10.0"
+	}
+}
