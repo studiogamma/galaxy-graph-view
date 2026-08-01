@@ -2,8 +2,6 @@
 > **Early Access / Beta Status**
 > This plugin is currently in early access and under active development. You may encounter bugs or unexpected behavior.
 > Frequent updates will be released to improve stability and add new features.
->
-> If you find any issues or have feedback, please feel free to [open an Issue](https://github.com/YOUR_GITHUB_ID/YOUR_REPO_NAME/issues)!
 
 # Galaxy
 
