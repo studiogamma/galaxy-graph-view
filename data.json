@@ -1,7 +1,7 @@
 {
   "siblingSortMode": "alphabetical",
   "keplerBaseOmega": 5,
-  "theme": "celestial",
+  "theme": "dark",
   "orbitDirection": "counterclockwise",
   "parentSource": "tag",
   "hideLoneNodes": true,

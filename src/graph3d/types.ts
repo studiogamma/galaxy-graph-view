@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { ForceGraph3DInstance } from '3d-force-graph';
 import type { OrbitPluginSettings } from '../types';
 
 /** Node data fed to 3d-force-graph's graphData (all nodes in vault). */
@@ -47,7 +48,7 @@ export interface OrbitalChild {
 }
 
 export interface Graph3DContext {
-	getGraph(): any;
+	getGraph(): ForceGraph3DInstance | null;
 	getSettings(): OrbitPluginSettings;
 	getForceNodes(): Map<string, ForceNode>;
 	getOrbitalChildren(): Map<string, OrbitalChild>;

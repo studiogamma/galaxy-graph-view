@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import type { Graph3DContext } from './types';
 
 export class NodeFocusedCameraControls {
@@ -56,8 +55,7 @@ export class NodeFocusedCameraControls {
 			const targetPos = this.context.getNodeWorldPosition(focusedNodeId);
 			if (targetPos) {
 				const camera = graph.camera();
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const controls = (graph as any).controls?.();
+				const controls = graph.controls() as { target?: { set: (x: number, y: number, z: number) => void } } | undefined;
 				
 				if (camera) {
 					// OrbitControls' target should always follow the focused node so we can orbit around it

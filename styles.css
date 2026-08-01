@@ -32,8 +32,8 @@
 
 .orbit-graph-3d-container canvas {
 	display: block;
-	width: 100% !important;
-	height: 100% !important;
+	width: 100%;
+	height: 100%;
 }
 
 /* Ensure settings panel overlays the WebGL canvas */

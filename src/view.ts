@@ -683,11 +683,13 @@ export class OrbitGraphView extends ItemView {
 				const left = inputRect.left - containerRect.left;
 				const width = inputRect.width;
 
-				dropdownEl.style.position = 'absolute';
-				dropdownEl.style.top = `${top}px`;
-				dropdownEl.style.left = `${left}px`;
-				dropdownEl.style.width = `${width}px`;
-				dropdownEl.style.zIndex = '1000';
+				dropdownEl.setCssStyles({
+					position: 'absolute',
+					top: `${top}px`,
+					left: `${left}px`,
+					width: `${width}px`,
+					zIndex: '1000'
+				});
 			}
 		};
 

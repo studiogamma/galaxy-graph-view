@@ -10,7 +10,7 @@
 // - Inverse-zoom text scaling for readable labels at any zoom level
 // ============================================================================
 
-import { ParsedGraph, OrbitPluginSettings, OrbitThemeType, OrbitTraceStyle, OrbitDirectionType, LineToParentStyle } from './types';
+import { OrbitThemeType } from './types';
 
 // ---------------------------------------------------------------------------
 // Color Themes & Palettes

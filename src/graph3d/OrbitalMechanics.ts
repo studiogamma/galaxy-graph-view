@@ -148,8 +148,8 @@ export class OrbitalMechanics {
 				labelHigh.material.alphaTest = 0.1;
 				labelHigh.renderOrder = 999;
 				labelHigh.raycast = () => {};
-				(labelHigh as unknown as THREE.Object3D).position.y = -(renderRadius * 1.4);
-				highGroup.add(labelHigh as unknown as THREE.Object3D);
+				labelHigh.position.y = -(renderRadius * 1.4);
+				highGroup.add(labelHigh);
 				lod.addLevel(highGroup, 0);
 
 				// Level 1
@@ -173,8 +173,8 @@ export class OrbitalMechanics {
 				labelMid.material.alphaTest = 0.1;
 				labelMid.renderOrder = 999;
 				labelMid.raycast = () => {};
-				(labelMid as unknown as THREE.Object3D).position.y = -(renderRadius * 1.4);
-				midGroup.add(labelMid as unknown as THREE.Object3D);
+				labelMid.position.y = -(renderRadius * 1.4);
+				midGroup.add(labelMid);
 				lod.addLevel(midGroup, 1000);
 
 				// Level 2

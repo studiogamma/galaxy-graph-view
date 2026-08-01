@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-import ForceGraph3D from '3d-force-graph';
+import ForceGraph3D, { ForceGraph3DInstance } from '3d-force-graph';
 import type { ParsedGraph, OrbitPluginSettings } from '../types';
 import type { Graph3DContext, ForceNode, OrbitalChild, ForceLink } from './types';
 import { NodeFocusedCameraControls } from './NodeFocusedCameraControls';
@@ -17,8 +16,7 @@ import {
 import { THEMES, getNodeColor } from '../renderer';
 
 export class GalaxyCustomManager implements Graph3DContext {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private graph: any = null;
+	private graph: ForceGraph3DInstance | null = null;
 	private containerEl: HTMLElement;
 	private settings: OrbitPluginSettings;
 
@@ -91,10 +89,9 @@ export class GalaxyCustomManager implements Graph3DContext {
 	getNodeWorldPosition(nodeId: string): { x: number; y: number; z: number } | null {
 		const tempPos = new THREE.Vector3();
 		const forceNode = this.forceNodes.get(nodeId);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const forceObj = forceNode ? (forceNode as any).__threeObj : null;
-		if (forceObj && typeof forceObj.getWorldPosition === 'function') {
-			forceObj.getWorldPosition(tempPos);
+		const forceObj = forceNode as unknown as { __threeObj?: THREE.Object3D } | null;
+		if (forceObj && forceObj.__threeObj && typeof forceObj.__threeObj.getWorldPosition === 'function') {
+			forceObj.__threeObj.getWorldPosition(tempPos);
 			return { x: tempPos.x, y: tempPos.y, z: tempPos.z };
 		}
 		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
@@ -110,10 +107,9 @@ export class GalaxyCustomManager implements Graph3DContext {
 
 	getNodeLocalPosition(nodeId: string): { x: number; y: number; z: number } | null {
 		const forceNode = this.forceNodes.get(nodeId);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const forceObj = forceNode ? (forceNode as any).__threeObj : null;
-		if (forceObj && forceObj.position) {
-			return { x: forceObj.position.x, y: forceObj.position.y, z: forceObj.position.z };
+		const forceObj = forceNode as unknown as { __threeObj?: THREE.Object3D } | null;
+		if (forceObj && forceObj.__threeObj && forceObj.__threeObj.position) {
+			return { x: forceObj.__threeObj.position.x, y: forceObj.__threeObj.position.y, z: forceObj.__threeObj.position.z };
 		}
 		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
 			return { x: forceNode.x, y: forceNode.y, z: forceNode.z ?? 0 };
@@ -213,8 +209,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 			const newColor = getNodeColor(nodeId, forceNode.depth, this.settings.theme, systemMaxDepth, 0);
 			forceNode.color = newColor;
 
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const lodObj = (forceNode as any).__threeObj as THREE.LOD | undefined;
+			const lodObj = (forceNode as unknown as { __threeObj?: THREE.LOD }).__threeObj;
 			if (lodObj) {
 				updateLODObjectScalesAndColors(lodObj, renderRadius, newColor, isLight);
 			}
@@ -257,8 +252,14 @@ export class GalaxyCustomManager implements Graph3DContext {
 			}
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const d3 = (window as any).d3;
+		interface D3Global {
+			forceManyBody: () => { strength: (val: number) => void };
+			forceCenter: (x: number, y: number, z: number) => unknown;
+			forceX: (fn: (n: ForceNode) => number) => { strength: (val: number) => void };
+			forceY: (fn: (n: ForceNode) => number) => { strength: (val: number) => void };
+			forceZ: (fn: (n: ForceNode) => number) => { strength: (val: number) => void };
+		}
+		const d3 = (window as unknown as { d3: D3Global }).d3;
 		if (d3 && typeof d3.forceManyBody === 'function') {
 			this.graph.d3Force('charge', d3.forceManyBody().strength(-250 * (this.settings.nodeSizeScale ?? 1.0)));
 		}
@@ -280,8 +281,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 		const { forceNodeList, forceLinkList } = this.buildForceData(parsedGraph);
 		this.orbitalMechanics.buildOrbitalChildren(parsedGraph);
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const factory = ForceGraph3D as any;
+		const factory = ForceGraph3D;
 		this.graph = factory()(this.containerEl);
 
 		const controls = this.graph.controls();
@@ -323,8 +323,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 			.cooldownTime(5000)
 			.onNodeDrag(() => {
 				this.isNodeDragging = true;
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const controls = (this.graph as any)?.controls?.();
+				const controls = this.graph?.controls() as { autoRotate?: boolean } | undefined;
 				if (controls) {
 					controls.autoRotate = false;
 				}
@@ -340,8 +339,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 
 		this.graph.d3Force('link', null);
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const d3 = (window as any).d3;
+		const d3 = (window as unknown as { d3: D3Global }).d3;
 		if (d3 && typeof d3.forceManyBody === 'function') {
 			this.graph.d3Force('charge', d3.forceManyBody().strength(-250 * (this.settings.nodeSizeScale ?? 1.0)));
 		} else {
@@ -353,12 +351,9 @@ export class GalaxyCustomManager implements Graph3DContext {
 		}
 
 		if (d3 && typeof d3.forceX === 'function') {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			this.graph.d3Force('x', d3.forceX((n: any) => n.targetX ?? 0).strength(0.12));
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			this.graph.d3Force('y', d3.forceY((n: any) => n.targetY ?? 0).strength(0.12));
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			this.graph.d3Force('z', d3.forceZ((n: any) => n.targetZ ?? 0).strength(0.12));
+			this.graph.d3Force('x', d3.forceX((n: ForceNode) => n.targetX ?? 0).strength(0.12));
+			this.graph.d3Force('y', d3.forceY((n: ForceNode) => n.targetY ?? 0).strength(0.12));
+			this.graph.d3Force('z', d3.forceZ((n: ForceNode) => n.targetZ ?? 0).strength(0.12));
 		}
 
 		this.addChildrenToScene();
@@ -370,7 +365,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 			scene.add(this.galacticCoreObj);
 		}
 
-		setTimeout(() => {
+		window.setTimeout(() => {
 			if (this.graph) {
 				this.graph.zoomToFit(1000, 100);
 			}
@@ -500,9 +495,9 @@ export class GalaxyCustomManager implements Graph3DContext {
 		if (this.animFrameId !== null) return;
 		const loop = () => {
 			this.updateOrbitalAnimation();
-			this.animFrameId = requestAnimationFrame(loop);
+			this.animFrameId = window.requestAnimationFrame(loop);
 		};
-		this.animFrameId = requestAnimationFrame(loop);
+		this.animFrameId = window.requestAnimationFrame(loop);
 	}
 
 	private stopAnimationLoop(): void {
@@ -536,11 +531,10 @@ export class GalaxyCustomManager implements Graph3DContext {
 				}
 				if (child.children) {
 					score += child.children.length;
-					const hasGraphElements = child.children.some(c => 
-						c.type === 'LOD' || 
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(c as any).__data !== undefined
-					);
+					const hasGraphElements = child.children.some(c => {
+						const objData = (c as unknown as { __data?: unknown }).__data;
+						return c.type === 'LOD' || objData !== undefined;
+					});
 					if (hasGraphElements) {
 						score += 5000;
 					}
@@ -604,8 +598,7 @@ export class GalaxyCustomManager implements Graph3DContext {
 				}
 
 				for (const forceNode of this.forceNodes.values()) {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					const threeObj = (forceNode as any).__threeObj;
+					const threeObj = (forceNode as unknown as { __threeObj?: THREE.Object3D }).__threeObj;
 					if (threeObj) {
 						const dist = camera.position.distanceTo(threeObj.position);
 						updateNodeDistanceOpacity(threeObj, dist);

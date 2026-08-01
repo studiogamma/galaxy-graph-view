@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
 import type { ForceNode } from './types';
-import { THEMES } from '../renderer';
+
 
 export const BASE_NODE_SCALE = 30;
 export const BASE_ORBIT_SCALE = 240;

@@ -33,8 +33,7 @@ export class InteractionHandler {
 		}
 
 		for (const [rootId, forceNode] of this.context.getForceNodes().entries()) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const threeObj = (forceNode as any).__threeObj;
+			const threeObj = (forceNode as unknown as { __threeObj?: THREE.Object3D }).__threeObj;
 			if (threeObj) {
 				targets.push(threeObj);
 				objectToNodeIdMap.set(threeObj, rootId);
