@@ -24,7 +24,7 @@ export default class OrbitPlugin extends Plugin {
 		this.addSettingTab(new OrbitSettingTab(this.app, this));
 
 		// Ribbon icon (planet emoji mapped to Lucide "orbit" icon).
-		this.addRibbonIcon('orbit', 'Open Orbit Graph View', () => {
+		this.addRibbonIcon('orbit', 'Open Galaxy View', () => {
 			void this.activateView();
 		});
 

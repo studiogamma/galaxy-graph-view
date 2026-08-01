@@ -8,7 +8,7 @@
 
 import { ItemView, WorkspaceLeaf, debounce, setIcon } from 'obsidian';
 import { parseVault } from './parser';
-import { Graph3DManager } from './graph3d';
+import { GalaxyCustomManager } from './graph3d';
 import { ParsedGraph, OrbitPluginSettings, DEFAULT_SETTINGS, SiblingSortMode, OrbitThemeType, OrbitParentSourceType, OrbitTraceStyle, LineToParentStyle } from './types';
 
 export const VIEW_TYPE_ORBIT = '3d-galaxy-graph-view';
@@ -25,7 +25,7 @@ export class OrbitGraphView extends ItemView {
 	private searchInputEl: HTMLInputElement | null = null;
 
 	// -- Core systems --------------------------------------------------------
-	private graph3d: Graph3DManager | null = null;
+	private graph3d: GalaxyCustomManager | null = null;
 	private graph: ParsedGraph | null = null;
 
 	// -- Canvas element ------------------------------------------------------
@@ -170,13 +170,15 @@ export class OrbitGraphView extends ItemView {
 
 		if (!this.graphContainerEl) return;
 
-		// Clean up existing 3D graph.
+		// Clean up existing 3D graph and preserve focused node.
+		let prevFocusedNodeId: string | null = null;
 		if (this.graph3d) {
+			prevFocusedNodeId = this.graph3d.getFocusedNodeId();
 			this.graph3d.cleanup();
 		}
 
 		// Create new graph manager and initialize.
-		this.graph3d = new Graph3DManager(this.graphContainerEl, this.settings);
+		this.graph3d = new GalaxyCustomManager(this.graphContainerEl, this.settings);
 		this.graph3d.initialize(this.graph);
 
 		// Set up click handler for opening notes (supports both root and orbital child nodes).
@@ -188,6 +190,16 @@ export class OrbitGraphView extends ItemView {
 		this.graph3d.setOnNodeRightClick((nodeId: string) => {
 			this.focusCameraOnNode(nodeId);
 		});
+
+		// Sync focus state from 3D scene (right-click, background click, target tracking) to Search Box UI
+		this.graph3d.setOnFocusChange((nodeId: string | null) => {
+			this.syncSearchInputFocusState(nodeId);
+		});
+		
+		// Restore focus state if it existed before rebuild
+		if (prevFocusedNodeId) {
+			this.focusCameraOnNode(prevFocusedNodeId);
+		}
 
 		const g = this.graph3d.getGraph();
 		if (g) {
@@ -519,6 +531,32 @@ export class OrbitGraphView extends ItemView {
 						if (this.saveSettingsCallback) await this.saveSettingsCallback(this.settings);
 					}
 				);
+
+				// 8. Galactic Rotation
+				this.createCheckboxSetting(
+					secBody,
+					'Galactic Rotation',
+					'',
+					this.settings.galacticRotation ?? false,
+					async (val) => {
+						this.settings.galacticRotation = val;
+						this.updateDisplaySettings();
+						if (this.saveSettingsCallback) await this.saveSettingsCallback(this.settings);
+					}
+				);
+
+				// 9. Show Axis
+				this.createCheckboxSetting(
+					secBody,
+					'Show Axis',
+					'',
+					this.settings.showAxis ?? false,
+					async (val) => {
+						this.settings.showAxis = val;
+						this.updateDisplaySettings();
+						if (this.saveSettingsCallback) await this.saveSettingsCallback(this.settings);
+					}
+				);
 			},
 			(actionEl) => {
 				const resetBtn = actionEl.createEl('button', { cls: 'orbit-graph-settings-action-btn' });
@@ -536,6 +574,8 @@ export class OrbitGraphView extends ItemView {
 						this.settings.orbitTraceStyle = DEFAULT_SETTINGS.orbitTraceStyle ?? 'translucent';
 						this.settings.lineToParentStyle = DEFAULT_SETTINGS.lineToParentStyle ?? 'translucent';
 						this.settings.dualParentOvalOrbit = DEFAULT_SETTINGS.dualParentOvalOrbit ?? true;
+						this.settings.galacticRotation = DEFAULT_SETTINGS.galacticRotation ?? false;
+						this.settings.showAxis = DEFAULT_SETTINGS.showAxis ?? false;
 						this.lastActiveSpeed = DEFAULT_SETTINGS.keplerBaseOmega;
 
 						this.updateDisplaySettings();
@@ -543,6 +583,14 @@ export class OrbitGraphView extends ItemView {
 							await this.saveSettingsCallback(this.settings);
 						}
 						this.renderSettingsContent();
+
+						// Auto-fit camera after resetting display settings
+						if (this.graph3d) {
+							const g = this.graph3d.getGraph();
+							if (g && typeof g.zoomToFit === 'function') {
+								g.zoomToFit(1000, 100);
+							}
+						}
 					})();
 				});
 			}
@@ -620,8 +668,35 @@ export class OrbitGraphView extends ItemView {
 		});
 		clearBtn.setAttribute('title', 'Clear Focus');
 
-		// Autocomplete Dropdown Popup
-		const dropdownEl = searchContainer.createDiv({ cls: 'orbit-autocomplete-dropdown is-hidden' });
+		// Autocomplete Dropdown Popup - Appended to containerDiv to prevent clipping by overflow:hidden Settings Panel
+		const dropdownEl = this.containerDiv
+			? this.containerDiv.createDiv({ cls: 'orbit-autocomplete-dropdown is-hidden' })
+			: searchContainer.createDiv({ cls: 'orbit-autocomplete-dropdown is-hidden' });
+
+		const updateDropdownPosition = () => {
+			if (!this.containerDiv || dropdownEl.classList.contains('is-hidden')) return;
+			const inputRect = input.getBoundingClientRect();
+			const containerRect = this.containerDiv.getBoundingClientRect();
+
+			if (inputRect && containerRect) {
+				const top = inputRect.bottom - containerRect.top + 4;
+				const left = inputRect.left - containerRect.left;
+				const width = inputRect.width;
+
+				dropdownEl.style.position = 'absolute';
+				dropdownEl.style.top = `${top}px`;
+				dropdownEl.style.left = `${left}px`;
+				dropdownEl.style.width = `${width}px`;
+				dropdownEl.style.zIndex = '1000';
+			}
+		};
+
+		const settingsContentEl = this.settingsPanelEl?.querySelector('.orbit-graph-settings-content');
+		if (settingsContentEl) {
+			settingsContentEl.addEventListener('scroll', () => {
+				updateDropdownPosition();
+			});
+		}
 
 		let currentMatches: { id: string; label: string }[] = [];
 		let highlightedIndex = -1;
@@ -660,7 +735,7 @@ export class OrbitGraphView extends ItemView {
 			nodes.sort((a, b) => a.label.localeCompare(b.label));
 
 			currentMatches = query
-				? nodes.filter((node) => node.label.toLowerCase().startsWith(query))
+				? nodes.filter((node) => node.label.toLowerCase().includes(query))
 				: nodes;
 
 			if (currentMatches.length === 0) {
@@ -669,6 +744,7 @@ export class OrbitGraphView extends ItemView {
 			}
 
 			dropdownEl.classList.remove('is-hidden');
+			updateDropdownPosition();
 
 			currentMatches.forEach((node, idx) => {
 				const optionEl = dropdownEl.createDiv({
@@ -698,6 +774,9 @@ export class OrbitGraphView extends ItemView {
 		});
 
 		input.addEventListener('input', () => {
+			if (input.value.trim() === '') {
+				this.clearFocusedNode();
+			}
 			updateDropdown();
 		});
 
@@ -749,27 +828,45 @@ export class OrbitGraphView extends ItemView {
 		});
 
 		clearBtn.addEventListener('click', () => {
-			input.value = '';
+			this.clearFocusedNode();
 			dropdownEl.classList.add('is-hidden');
 			highlightedIndex = -1;
 		});
 	}
 
 	/**
+	 * Synchronize the search box text input value with the active node focus state.
+	 */
+	private syncSearchInputFocusState(nodeId: string | null): void {
+		if (this.searchInputEl) {
+			if (nodeId && this.graph) {
+				const node = this.graph.nodes.get(nodeId);
+				this.searchInputEl.value = node ? node.label : '';
+			} else {
+				this.searchInputEl.value = '';
+			}
+		}
+	}
+
+	/**
 	 * Focus the 3D camera on a specific node (parent or child) by ID and track its orbital path continuously.
 	 */
-	private focusCameraOnNode(nodeId: string): void {
-		if (!this.graph3d) return;
-		this.graph3d.setFocusedNode(nodeId);
+	private focusCameraOnNode(nodeId: string | null): void {
+		if (!nodeId) {
+			this.clearFocusedNode();
+			return;
+		}
+		if (this.graph3d) {
+			this.graph3d.setFocusedNode(nodeId);
+		}
+		this.syncSearchInputFocusState(nodeId);
 	}
 
 	private clearFocusedNode(): void {
-		if (this.searchInputEl) {
-			this.searchInputEl.value = '';
-		}
 		if (this.graph3d) {
 			this.graph3d.clearFocusedNode();
 		}
+		this.syncSearchInputFocusState(null);
 	}
 
 	private createDropdownSetting(

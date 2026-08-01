@@ -42,6 +42,7 @@ export interface OrbitPluginSettings {
 	gravity?: number;
 	galacticRotation: boolean;
 	nodeSizeScale: number;
+	showAxis: boolean;
 }
 
 export const DEFAULT_SETTINGS: OrbitPluginSettings = {
@@ -62,6 +63,7 @@ export const DEFAULT_SETTINGS: OrbitPluginSettings = {
 	gravity: 1.0,
 	galacticRotation: false,
 	nodeSizeScale: 1.0,
+	showAxis: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -103,61 +105,6 @@ export interface GraphNode {
 
 	/** File last-modified timestamp (epoch ms). */
 	modifiedTime: number;
-}
-
-// ---------------------------------------------------------------------------
-// Physics / Animation Layer
-// ---------------------------------------------------------------------------
-
-/**
- * Per-node runtime state managed by the physics engine.
- * Recalculated every animation frame.
- */
-export interface OrbitalState {
-	nodeId: string;
-
-	/** Current orbital angle in radians. */
-	theta: number;
-
-	/** Angular velocity (radians per second). */
-	omega: number;
-
-	/** Orbital radius (distance from parent / centroid). */
-	radius: number;
-
-	/** Computed absolute X position in world space. */
-	x: number;
-
-	/** Computed absolute Y position in world space. */
-	y: number;
-
-	/** Visual radius for rendering (proportional to √mass). */
-	renderRadius: number;
-
-	/** Sibling sort index (closeness to parent). */
-	siblingIndex?: number;
-
-	/** Maximum depth of this node's solar system. */
-	systemMaxDepth?: number;
-
-	/** Recent world position history queue for real-time trajectory trails. */
-	trail?: { x: number; y: number }[];
-}
-
-// ---------------------------------------------------------------------------
-// Camera / Viewport
-// ---------------------------------------------------------------------------
-
-/**
- * 2D affine camera transform applied to the canvas.
- * World coordinates are mapped to screen coordinates via:
- *   screenX = (worldX + offsetX) * scale
- *   screenY = (worldY + offsetY) * scale
- */
-export interface ViewTransform {
-	offsetX: number;
-	offsetY: number;
-	scale: number;
 }
 
 // ---------------------------------------------------------------------------

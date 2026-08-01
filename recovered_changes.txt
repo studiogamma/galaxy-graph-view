@@ -1,0 +1,1063 @@
+--------------------------------------------------
+REPLACEMENT: Add isNodeDragging state, node drag callbacks, and camera auto-rotation logic to Graph3DManager in graph3d.ts
+TARGET CONTENT:
+	private onNodeClickCallback: ((nodeId: string) => void) | null = null;
+REPLACEMENT CONTENT:
+	private isNodeDragging: boolean = false;
+	private onNodeClickCallback: ((nodeId: string) => void) | null = null;
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Register onNodeDrag and onNodeDragEnd handlers on ForceGraph3D in graph3d.ts
+TARGET CONTENT:
+			.warmupTicks(50)
+			.cooldownTime(5000)
+			.onEngineStop(() => this.onEngineStop())
+			.graphData({ nodes: forceNodeList, links: forceLinkList });
+REPLACEMENT CONTENT:
+			.warmupTicks(50)
+			.cooldownTime(5000)
+			.onNodeDrag(() => {
+				this.isNodeDragging = true;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const controls = (this.graph as any)?.controls?.();
+				if (controls) {
+					controls.autoRotate = false;
+				}
+			})
+			.onNodeDragEnd(() => {
+				this.isNodeDragging = false;
+			})
+			.onEngineStop(() => this.onEngineStop())
+			.graphData({ nodes: forceNodeList, links: forceLinkList });
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Refactor Galactic Rotation to camera-based OrbitControls auto-rotation in updateOrbitalAnimation in graph3d.ts
+TARGET CONTENT:
+		// 0. Update Galactic Rotation around (0, 0, 0) for top-level root force nodes
+		if (this.settings.galacticRotation && (this.settings.keplerBaseOmega ?? 0) > 0) {
+			const direction = this.settings.orbitDirection === 'clockwise' ? 1 : -1;
+			const baseOmega = this.settings.keplerBaseOmega;
+
+			for (const forceNode of this.forceNodes.values()) {
+				if (forceNode.x !== undefined && forceNode.y !== undefined) {
+					const x = forceNode.x;
+					const y = forceNode.y;
+					const distFromOrigin = Math.hypot(x, y);
+
+					const effectiveDist = Math.max(distFromOrigin, 50);
+					const rootOmega = (baseOmega / Math.sqrt(effectiveDist)) * direction;
+
+					const currentAngle = Math.atan2(y, x);
+					const newAngle = currentAngle + rootOmega * dt;
+
+					const newX = distFromOrigin * Math.cos(newAngle);
+					const newY = distFromOrigin * Math.sin(newAngle);
+
+					forceNode.x = newX;
+					forceNode.y = newY;
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(forceNode as any).fx = newX;
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(forceNode as any).fy = newY;
+				}
+			}
+		} else {
+			for (const forceNode of this.forceNodes.values()) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				if ((forceNode as any).fx !== undefined) {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(forceNode as any).fx = undefined;
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(forceNode as any).fy = undefined;
+				}
+			}
+		}
+REPLACEMENT CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		if (this.graph) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+			if (controls) {
+				if (controls.target && typeof controls.target.set === 'function') {
+					controls.target.set(0, 0, 0);
+				}
+				if (this.settings.galacticRotation && (this.settings.keplerBaseOmega ?? 0) > 0 && !this.isNodeDragging && !this.focusedNodeId) {
+					controls.autoRotate = true;
+					const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+					controls.autoRotateSpeed = (this.settings.keplerBaseOmega ?? 2.5) * 0.5 * direction;
+				} else {
+					controls.autoRotate = false;
+				}
+				if (typeof controls.update === 'function') {
+					controls.update();
+				}
+			}
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Add lastDebugLogTime property and direct camera orbit rotation with 1-second debug logging in graph3d.ts
+TARGET CONTENT:
+	private isNodeDragging: boolean = false;
+REPLACEMENT CONTENT:
+	private isNodeDragging: boolean = false;
+	private lastDebugLogTime: number = 0;
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Update camera position rotation and 1-second debug logging in updateOrbitalAnimation in graph3d.ts
+TARGET CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		if (this.graph) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+			if (controls) {
+				if (controls.target && typeof controls.target.set === 'function') {
+					controls.target.set(0, 0, 0);
+				}
+				if (this.settings.galacticRotation && (this.settings.keplerBaseOmega ?? 0) > 0 && !this.isNodeDragging && !this.focusedNodeId) {
+					controls.autoRotate = true;
+					const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+					controls.autoRotateSpeed = (this.settings.keplerBaseOmega ?? 2.5) * 0.5 * direction;
+				} else {
+					controls.autoRotate = false;
+				}
+				if (typeof controls.update === 'function') {
+					controls.update();
+				}
+			}
+		}
+REPLACEMENT CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		const isRotating = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0 &&
+			!this.isNodeDragging &&
+			!this.focusedNodeId
+		);
+
+		// Debug log every 1 second (1000ms)
+		if (now - this.lastDebugLogTime >= 1000) {
+			this.lastDebugLogTime = now;
+			console.log(
+				`[Galactic Rotation Debug] Camera rotate: ${isRotating ? 'enabled' : 'disabled'} (galacticRotation=${this.settings.galacticRotation}, speed=${this.settings.keplerBaseOmega}, isNodeDragging=${this.isNodeDragging}, focusedNodeId=${this.focusedNodeId})`
+			);
+		}
+
+		if (this.graph) {
+			const camera = this.graph.camera();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+
+			if (camera && isRotating) {
+				const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+				const baseOmega = this.settings.keplerBaseOmega ?? 5;
+				const omega = baseOmega * 0.05 * direction;
+				const deltaAngle = omega * dt;
+
+				const cx = camera.position.x;
+				const cz = camera.position.z;
+				const r = Math.hypot(cx, cz);
+
+				if (r > 0.001) {
+					const currentAngle = Math.atan2(cz, cx);
+					const newAngle = currentAngle + deltaAngle;
+
+					camera.position.x = r * Math.cos(newAngle);
+					camera.position.z = r * Math.sin(newAngle);
+				}
+
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Update wheel listener in graph3d.ts to dynamically adjust cameraOffset on wheel event when node is focused
+TARGET CONTENT:
+		// Listen for mouse wheel zoom to dynamically adjust camera distance while focused
+		this.containerEl.addEventListener('wheel', () => {
+			if (this.focusedNodeId && this.graph) {
+				const targetPos = this.getNodeWorldPosition(this.focusedNodeId);
+				if (targetPos) {
+					const camera = this.graph.camera();
+					if (camera) {
+						this.cameraOffset.set(
+							camera.position.x - targetPos.x,
+							camera.position.y - targetPos.y,
+							camera.position.z - targetPos.z
+						);
+					}
+				}
+			}
+		}, { passive: true });
+REPLACEMENT CONTENT:
+		// Listen for mouse wheel zoom to dynamically adjust camera distance while focused
+		this.containerEl.addEventListener('wheel', (e: WheelEvent) => {
+			if (this.focusedNodeId && this.graph) {
+				const factor = Math.pow(1.0015, e.deltaY);
+				const currentDist = this.cameraOffset.length();
+				const newDist = Math.max(20, Math.min(15000, currentDist * factor));
+				if (currentDist > 0) {
+					this.cameraOffset.setLength(newDist);
+				} else {
+					this.cameraOffset.set(0, 0, newDist);
+				}
+			}
+		}, { passive: true });
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Fix syntax error in `setupPointerClickListener` declaration.
+TARGET CONTENT:
+		return 	private setupPointerClickListener(): void {
+REPLACEMENT CONTENT:
+		return null;
+	}
+
+	private setupPointerClickListener(): void {
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Configure mouse buttons for camera controls.
+TARGET CONTENT:
+		this.graph = factory()(this.containerEl);
+REPLACEMENT CONTENT:
+		this.graph = factory()(this.containerEl);
+
+		// Restore RMB drag panning for controls
+		const controls = this.graph.controls();
+		if (controls) {
+			// THREE.MOUSE.ROTATE = 0, DOLLY = 1, PAN = 2
+			controls.mouseButtons = {
+				LEFT: 0,
+				MIDDLE: 1,
+				RIGHT: 2
+			};
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Fix closing braces of pointer listener.
+TARGET CONTENT:
+		});
+	}}
+		});
+	}
+
+	/**
+REPLACEMENT CONTENT:
+		});
+	}
+
+	/**
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Disable galactic rotation while user is interacting with camera (pan/rotate/zoom) via mouse clicks or drags.
+TARGET CONTENT:
+		const isRotating = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0 &&
+			!this.isNodeDragging &&
+			!this.focusedNodeId
+		);
+REPLACEMENT CONTENT:
+		const isRotating = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0 &&
+			!this.isNodeDragging &&
+			!this.focusedNodeId &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Refactor camera update loop to fix Pan during Galactic Rotation.
+TARGET CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		const isRotating = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0 &&
+			!this.isNodeDragging &&
+			!this.focusedNodeId &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+
+		if (this.graph) {
+			const camera = this.graph.camera();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+
+			if (camera && isRotating) {
+				const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+				const baseOmega = this.settings.keplerBaseOmega ?? 5;
+				const omega = baseOmega * 0.05 * direction;
+				const deltaAngle = omega * dt;
+
+				const cx = camera.position.x;
+				const cz = camera.position.z;
+				const r = Math.hypot(cx, cz);
+
+				if (r > 0.001) {
+					const currentAngle = Math.atan2(cz, cx);
+					const newAngle = currentAngle + deltaAngle;
+
+					camera.position.x = r * Math.cos(newAngle);
+					camera.position.z = r * Math.sin(newAngle);
+				}
+
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+REPLACEMENT CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		const isGalacticRotationEnabled = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0
+		);
+
+		// If a node is focused, it overrides Galactic Rotation camera lock
+		const isCameraGalacticMode = isGalacticRotationEnabled && !this.focusedNodeId;
+
+		// Pause camera rotation during dragging/panning
+		const isRotating = Boolean(
+			isCameraGalacticMode &&
+			!this.isNodeDragging &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+
+		if (this.graph) {
+			const camera = this.graph.camera();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+
+			if (camera && isCameraGalacticMode) {
+				// 1. Maintain orbit rotation radius and angle if active
+				if (isRotating) {
+					const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+					const baseOmega = this.settings.keplerBaseOmega ?? 5;
+					const omega = baseOmega * 0.05 * direction;
+					const deltaAngle = omega * dt;
+
+					const cx = camera.position.x;
+					const cz = camera.position.z;
+					const r = Math.hypot(cx, cz);
+
+					if (r > 0.001) {
+						const currentAngle = Math.atan2(cz, cx);
+						const newAngle = currentAngle + deltaAngle;
+
+						camera.position.x = r * Math.cos(newAngle);
+						camera.position.z = r * Math.sin(newAngle);
+					}
+				}
+
+				// 2. Lock LookAt and Target to Origin (0,0,0)
+				// This guarantees panning changes orbit radius but keeps visual center at (0,0,0)
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Refactor `getNodeWorldPosition` to extract the live Three.js World Position.
+TARGET CONTENT:
+	getNodeWorldPosition(nodeId: string): { x: number; y: number; z: number } | null {
+		const forceNode = this.forceNodes.get(nodeId);
+		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
+			return { x: forceNode.x, y: forceNode.y, z: forceNode.z ?? 0 };
+		}
+
+		const orbChild = this.orbitalChildren.get(nodeId);
+		if (orbChild) {
+			return {
+				x: orbChild.lod.position.x,
+				y: orbChild.lod.position.y,
+				z: orbChild.lod.position.z,
+			};
+		}
+
+		return null;
+	}
+REPLACEMENT CONTENT:
+	getNodeWorldPosition(nodeId: string): { x: number; y: number; z: number } | null {
+		const tempPos = new THREE.Vector3();
+
+		const forceNode = this.forceNodes.get(nodeId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const forceObj = forceNode ? (forceNode as any).__threeObj : null;
+		if (forceObj && typeof forceObj.getWorldPosition === 'function') {
+			forceObj.getWorldPosition(tempPos);
+			return { x: tempPos.x, y: tempPos.y, z: tempPos.z };
+		}
+		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
+			return { x: forceNode.x, y: forceNode.y, z: forceNode.z ?? 0 };
+		}
+
+		const orbChild = this.orbitalChildren.get(nodeId);
+		if (orbChild && orbChild.lod && typeof orbChild.lod.getWorldPosition === 'function') {
+			orbChild.lod.getWorldPosition(tempPos);
+			return { x: tempPos.x, y: tempPos.y, z: tempPos.z };
+		}
+
+		return null;
+	}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Replace camera rotation with scene group rotation.
+TARGET CONTENT:
+		// 0. Update Camera-Based Galactic Rotation around (0, 0, 0)
+		const isGalacticRotationEnabled = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0
+		);
+
+		// If a node is focused, it overrides Galactic Rotation camera lock
+		const isCameraGalacticMode = isGalacticRotationEnabled && !this.focusedNodeId;
+
+		// Pause camera rotation during dragging/panning
+		const isRotating = Boolean(
+			isCameraGalacticMode &&
+			!this.isNodeDragging &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+
+		if (this.graph) {
+			const camera = this.graph.camera();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+
+			if (camera && isCameraGalacticMode) {
+				// 1. Maintain orbit rotation radius and angle if active
+				if (isRotating) {
+					const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+					const baseOmega = this.settings.keplerBaseOmega ?? 5;
+					const omega = baseOmega * 0.05 * direction;
+					const deltaAngle = omega * dt;
+
+					const cx = camera.position.x;
+					const cz = camera.position.z;
+					const r = Math.hypot(cx, cz);
+
+					if (r > 0.001) {
+						const currentAngle = Math.atan2(cz, cx);
+						const newAngle = currentAngle + deltaAngle;
+
+						camera.position.x = r * Math.cos(newAngle);
+						camera.position.z = r * Math.sin(newAngle);
+					}
+				}
+
+				// 2. Lock LookAt and Target to Origin (0,0,0)
+				// This guarantees panning changes orbit radius but keeps visual center at (0,0,0)
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+REPLACEMENT CONTENT:
+		// 0. Update Galactic Rotation (Scene Rotation) around (0, 0, 0)
+		const isGalacticRotationEnabled = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0
+		);
+
+		// Pause scene rotation during dragging/panning to prevent conflict with user interaction
+		const isRotating = Boolean(
+			isGalacticRotationEnabled &&
+			!this.isNodeDragging &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+
+		if (this.graph) {
+			const camera = this.graph.camera();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const controls = (this.graph as any).controls?.();
+			const scene = this.graph.scene();
+
+			if (isRotating && scene) {
+				const direction = this.settings.orbitDirection === 'clockwise' ? -1 : 1;
+				const baseOmega = this.settings.keplerBaseOmega ?? 5;
+				const omega = baseOmega * 0.05 * direction;
+				const deltaAngle = omega * dt;
+
+				// Rotate the entire graph scene
+				scene.rotation.y += deltaAngle;
+			}
+
+			// If NO node is focused, and Galactic Rotation is ON, lock camera target to (0,0,0)
+			if (camera && isGalacticRotationEnabled && !this.focusedNodeId) {
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Add `getFocusedNodeId` method.
+TARGET CONTENT:
+	private onFocusChangeCallback: ((nodeId: string | null) => void) | null = null;
+
+	/**
+	 * Register callback for when focused node changes (e.g. via right click or clearing focus).
+	 */
+	setOnFocusChange(callback: (nodeId: string | null) => void): void {
+		this.onFocusChangeCallback = callback;
+	}
+REPLACEMENT CONTENT:
+	private onFocusChangeCallback: ((nodeId: string | null) => void) | null = null;
+
+	getFocusedNodeId(): string | null {
+		return this.focusedNodeId;
+	}
+
+	/**
+	 * Register callback for when focused node changes (e.g. via right click or clearing focus).
+	 */
+	setOnFocusChange(callback: (nodeId: string | null) => void): void {
+		this.onFocusChangeCallback = callback;
+	}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Fix `isGalacticRotationEnabled` condition.
+TARGET CONTENT:
+		// 0. Update Galactic Rotation (Scene Rotation) around (0, 0, 0)
+		const isGalacticRotationEnabled = Boolean(
+			this.settings.galacticRotation &&
+			(this.settings.keplerBaseOmega ?? 0) > 0
+		);
+
+		// Pause scene rotation during dragging/panning to prevent conflict with user interaction
+		const isRotating = Boolean(
+			isGalacticRotationEnabled &&
+			!this.isNodeDragging &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+REPLACEMENT CONTENT:
+		// 0. Update Galactic Rotation (Scene Rotation) around (0, 0, 0)
+		const isGalacticRotationEnabled = Boolean(this.settings.galacticRotation);
+
+		// Pause scene rotation during dragging/panning to prevent conflict with user interaction
+		const isRotating = Boolean(
+			isGalacticRotationEnabled &&
+			!this.isNodeDragging &&
+			!this.isRmbDragging &&
+			!this.pendingRmbDownPos &&
+			!this.clickPointerDownPos
+		);
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Add AxesHelper to galactic core object
+TARGET CONTENT:
+	private createGalacticCoreObject(): THREE.Group {
+		const group = new THREE.Group();
+
+		// Solid bright white core sphere
+		const coreGeo = new THREE.SphereGeometry(6, 16, 16);
+		const coreMat = new THREE.MeshBasicMaterial({
+			color: 0xffffff,
+			transparent: true,
+			opacity: 0.95,
+		});
+		const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+		group.add(coreMesh);
+
+		// Glowing outer halo sphere
+		const haloGeo = new THREE.SphereGeometry(14, 16, 16);
+		const haloMat = new THREE.MeshBasicMaterial({
+			color: 0xffffff,
+			transparent: true,
+			opacity: 0.35,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+		});
+		const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+		group.add(haloMesh);
+
+		return group;
+	}
+REPLACEMENT CONTENT:
+	private createGalacticCoreObject(): THREE.Group {
+		const group = new THREE.Group();
+
+		// Solid bright white core sphere
+		const coreGeo = new THREE.SphereGeometry(6, 16, 16);
+		const coreMat = new THREE.MeshBasicMaterial({
+			color: 0xffffff,
+			transparent: true,
+			opacity: 0.95,
+		});
+		const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+		group.add(coreMesh);
+
+		// Glowing outer halo sphere
+		const haloGeo = new THREE.SphereGeometry(14, 16, 16);
+		const haloMat = new THREE.MeshBasicMaterial({
+			color: 0xffffff,
+			transparent: true,
+			opacity: 0.35,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+		});
+		const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+		group.add(haloMesh);
+
+		// Add X/Y/Z Axes Helper (red, green, blue lines)
+		const axesHelper = new THREE.AxesHelper(150);
+		// Increase line width if possible (Note: WebGL renderer line width might not be fully supported depending on OS/Browser, but standard is fine)
+		group.add(axesHelper);
+
+		return group;
+	}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Set galacticCoreObj visibility on init
+TARGET CONTENT:
+		// Add Galactic Core White Dot at (0, 0, 0)
+		const scene = this.graph.scene();
+		if (scene) {
+			this.galacticCoreObj = this.createGalacticCoreObject();
+			scene.add(this.galacticCoreObj);
+		}
+REPLACEMENT CONTENT:
+		// Add Galactic Core White Dot and Axes at (0, 0, 0)
+		const scene = this.graph.scene();
+		if (scene) {
+			this.galacticCoreObj = this.createGalacticCoreObject();
+			this.galacticCoreObj.visible = this.settings.showAxis ?? false;
+			scene.add(this.galacticCoreObj);
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Toggle axis visibility in updateSettings
+TARGET CONTENT:
+		// 4. Update d3 Repulsion & Cluster Forces dynamically
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const d3 = (window as any).d3;
+		if (d3 && typeof d3.forceManyBody === 'function') {
+			this.graph.d3Force('charge', d3.forceManyBody().strength(-250 * (this.settings.nodeSizeScale ?? 1.0)));
+		}
+	}
+REPLACEMENT CONTENT:
+		// 4. Update d3 Repulsion & Cluster Forces dynamically
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const d3 = (window as any).d3;
+		if (d3 && typeof d3.forceManyBody === 'function') {
+			this.graph.d3Force('charge', d3.forceManyBody().strength(-250 * (this.settings.nodeSizeScale ?? 1.0)));
+		}
+		
+		// 5. Update Center Axis / Galactic Core visibility
+		if (this.galacticCoreObj) {
+			this.galacticCoreObj.visible = this.settings.showAxis ?? false;
+		}
+	}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Update planetary orbit to XZ plane
+TARGET CONTENT:
+		if (numParents === 1) {
+			// N=1: Circular orbit parallel to XY plane around single parent P(x, y, z)
+			const p = parentPositions[0]!;
+			const r = child.orbitRadius;
+			x = p.x + r * Math.cos(child.theta);
+			y = p.y + r * Math.sin(child.theta);
+			z = p.z; // Parallel to XY plane
+
+			// Realtime 3D Orbit Path Points for N=1
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					tracePoints.push(new THREE.Vector3(p.x + r * Math.cos(angle), p.y + r * Math.sin(angle), p.z));
+				}
+			}
+		} else if (numParents === 2 && (this.settings.dualParentOvalOrbit ?? true)) {
+			// N=2: 3D Elliptical Orbit with 2 Foci (Parents P1 & P2 in 3D Space)
+			const p1 = parentPositions[0]!;
+			const p2 = parentPositions[1]!;
+
+			const cx = (p1.x + p2.x) / 2;
+			const cy = (p1.y + p2.y) / 2;
+			const cz = (p1.z + p2.z) / 2;
+
+			const dx = p2.x - p1.x;
+			const dy = p2.y - p1.y;
+			const dz = p2.z - p1.z;
+			const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+			const u = new THREE.Vector3(1, 0, 0);
+			if (d > 0.0001) {
+				u.set(dx / d, dy / d, dz / d);
+			}
+
+			// Perpendicular vector v to u in 3D space
+			const ref = Math.abs(u.z) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+			const v = new THREE.Vector3().crossVectors(u, ref).normalize();
+
+			const a = d / 2 + child.orbitRadius; // Semi-major axis
+			const b = a * 0.65;                  // Semi-minor axis
+
+			const xLocal = a * Math.cos(child.theta);
+			const yLocal = b * Math.sin(child.theta);
+
+			// 3D Position: Center + xLocal * u + yLocal * v
+			x = cx + xLocal * u.x + yLocal * v.x;
+			y = cy + xLocal * u.y + yLocal * v.y;
+			z = cz + xLocal * u.z + yLocal * v.z;
+
+			// Realtime 3D Elliptical Orbit Path Points for N=2
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					const xl = a * Math.cos(angle);
+					const yl = b * Math.sin(angle);
+					tracePoints.push(new THREE.Vector3(
+						cx + xl * u.x + yl * v.x,
+						cy + xl * u.y + yl * v.y,
+						cz + xl * u.z + yl * v.z
+					));
+				}
+			}
+		} else {
+			// N>=3 (or N=2 circular fallback): Centroid Orbit at Center of Mass
+			let sumX = 0, sumY = 0, sumZ = 0;
+			for (const p of parentPositions) {
+				sumX += p.x;
+				sumY += p.y;
+				sumZ += p.z;
+			}
+			const cx = sumX / numParents;
+			const cy = sumY / numParents;
+			const cz = sumZ / numParents;
+
+			let maxDist = 0;
+			for (const p of parentPositions) {
+				const dist = Math.hypot(p.x - cx, p.y - cy, p.z - cz);
+				if (dist > maxDist) maxDist = dist;
+			}
+
+			const orbitR = maxDist + child.orbitRadius;
+			x = cx + orbitR * Math.cos(child.theta);
+			y = cy + orbitR * Math.sin(child.theta);
+			z = cz;
+
+			// Realtime 3D Orbit Path Points for N>=3
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					tracePoints.push(new THREE.Vector3(
+						cx + orbitR * Math.cos(angle),
+						cy + orbitR * Math.sin(angle),
+						cz
+					));
+				}
+			}
+		}
+REPLACEMENT CONTENT:
+		if (numParents === 1) {
+			// N=1: Circular orbit parallel to XZ plane around single parent P(x, y, z)
+			const p = parentPositions[0]!;
+			const r = child.orbitRadius;
+			x = p.x + r * Math.cos(child.theta);
+			y = p.y; // Parallel to XZ plane
+			z = p.z + r * Math.sin(child.theta);
+
+			// Realtime 3D Orbit Path Points for N=1
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					tracePoints.push(new THREE.Vector3(p.x + r * Math.cos(angle), p.y, p.z + r * Math.sin(angle)));
+				}
+			}
+		} else if (numParents === 2 && (this.settings.dualParentOvalOrbit ?? true)) {
+			// N=2: 3D Elliptical Orbit with 2 Foci (Parents P1 & P2 in 3D Space)
+			const p1 = parentPositions[0]!;
+			const p2 = parentPositions[1]!;
+
+			const cx = (p1.x + p2.x) / 2;
+			const cy = (p1.y + p2.y) / 2;
+			const cz = (p1.z + p2.z) / 2;
+
+			const dx = p2.x - p1.x;
+			const dy = p2.y - p1.y;
+			const dz = p2.z - p1.z;
+			const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+			const u = new THREE.Vector3(1, 0, 0);
+			if (d > 0.0001) {
+				u.set(dx / d, dy / d, dz / d);
+			}
+
+			// Perpendicular vector v to u in 3D space
+			const ref = Math.abs(u.z) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+			const v = new THREE.Vector3().crossVectors(u, ref).normalize();
+
+			const a = d / 2 + child.orbitRadius; // Semi-major axis
+			const b = a * 0.65;                  // Semi-minor axis
+
+			const xLocal = a * Math.cos(child.theta);
+			const yLocal = b * Math.sin(child.theta);
+
+			// 3D Position: Center + xLocal * u + yLocal * v
+			x = cx + xLocal * u.x + yLocal * v.x;
+			y = cy + xLocal * u.y + yLocal * v.y;
+			z = cz + xLocal * u.z + yLocal * v.z;
+
+			// Realtime 3D Elliptical Orbit Path Points for N=2
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					const xl = a * Math.cos(angle);
+					const yl = b * Math.sin(angle);
+					tracePoints.push(new THREE.Vector3(
+						cx + xl * u.x + yl * v.x,
+						cy + xl * u.y + yl * v.y,
+						cz + xl * u.z + yl * v.z
+					));
+				}
+			}
+		} else {
+			// N>=3 (or N=2 circular fallback): Centroid Orbit at Center of Mass
+			let sumX = 0, sumY = 0, sumZ = 0;
+			for (const p of parentPositions) {
+				sumX += p.x;
+				sumY += p.y;
+				sumZ += p.z;
+			}
+			const cx = sumX / numParents;
+			const cy = sumY / numParents;
+			const cz = sumZ / numParents;
+
+			let maxDist = 0;
+			for (const p of parentPositions) {
+				const dist = Math.hypot(p.x - cx, p.y - cy, p.z - cz);
+				if (dist > maxDist) maxDist = dist;
+			}
+
+			const orbitR = maxDist + child.orbitRadius;
+			x = cx + orbitR * Math.cos(child.theta);
+			y = cy; // Parallel to XZ plane
+			z = cz + orbitR * Math.sin(child.theta);
+
+			// Realtime 3D Orbit Path Points for N>=3
+			if (child.orbitTraceObj) {
+				for (let k = 0; k < segs; k++) {
+					const angle = (k / segs) * Math.PI * 2;
+					tracePoints.push(new THREE.Vector3(
+						cx + orbitR * Math.cos(angle),
+						cy,
+						cz + orbitR * Math.sin(angle)
+					));
+				}
+			}
+		}
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Remove camera lock during Galactic Rotation to allow panning
+TARGET CONTENT:
+				// Rotate the entire graph scene
+				scene.rotation.y += deltaAngle;
+			}
+
+			// If NO node is focused, and Galactic Rotation is ON, lock camera target to (0,0,0)
+			if (camera && isGalacticRotationEnabled && !this.focusedNodeId) {
+				camera.lookAt(0, 0, 0);
+
+				if (controls) {
+					if (controls.target && typeof controls.target.set === 'function') {
+						controls.target.set(0, 0, 0);
+					}
+					if (typeof controls.update === 'function') {
+						controls.update();
+					}
+				}
+			}
+		}
+
+		// 1. Advance orbital angles & compute world positions for child nodes
+REPLACEMENT CONTENT:
+				// Rotate the entire graph scene
+				scene.rotation.y += deltaAngle;
+			}
+		}
+
+		// 1. Advance orbital angles & compute world positions for child nodes
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Update orbital children colors on theme change
+TARGET CONTENT:
+		for (const child of this.orbitalChildren.values()) {
+			if (child.orbitTraceObj) {
+REPLACEMENT CONTENT:
+		for (const child of this.orbitalChildren.values()) {
+			// Update child size & theme colors
+			const { nodeRadius } = getNodeRelativeSizes(child.id, child.depth, child.systemMaxDepth);
+			const renderRadius = nodeRadius * BASE_NODE_SCALE * (this.settings.nodeSizeScale ?? 1.0);
+			child.renderRadius = renderRadius;
+			
+			const newColor = getNodeColor(child.id, child.depth, this.settings.theme, child.systemMaxDepth, child.siblingIndex);
+			child.color = newColor;
+
+			if (child.lod) {
+				this.updateLODObjectScalesAndColors(child.lod, renderRadius, newColor, isLight);
+			}
+
+			if (child.orbitTraceObj) {
+--------------------------------------------------
+--------------------------------------------------
+REPLACEMENT: Update getParentWorldPositions to getParentLocalPositions so child orbits are calculated in local scene space, fixing the double-rotation bug when Galactic Rotation is on.
+TARGET CONTENT:
+	private getParentWorldPositions(parentIds: string[]): { x: number; y: number; z: number }[] {
+		const positions: { x: number; y: number; z: number }[] = [];
+		for (const pid of parentIds) {
+			const pos = this.getNodeWorldPosition(pid);
+			if (pos) {
+				positions.push(pos);
+			}
+		}
+		return positions;
+	}
+
+	getNodeWorldPosition(nodeId: string): { x: number; y: number; z: number } | null {
+		const tempPos = new THREE.Vector3();
+
+		const forceNode = this.forceNodes.get(nodeId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const forceObj = forceNode ? (forceNode as any).__threeObj : null;
+		if (forceObj && typeof forceObj.getWorldPosition === 'function') {
+			forceObj.getWorldPosition(tempPos);
+			return { x: tempPos.x, y: tempPos.y, z: tempPos.z };
+		}
+		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
+			return { x: forceNode.x, y: forceNode.y, z: forceNode.z ?? 0 };
+		}
+
+		const orbChild = this.orbitalChildren.get(nodeId);
+		if (orbChild && orbChild.lod && typeof orbChild.lod.getWorldPosition === 'function') {
+			orbChild.lod.getWorldPosition(tempPos);
+			return { x: tempPos.x, y: tempPos.y, z: tempPos.z };
+		}
+
+		return null;
+	}
+
+	/**
+	 * Compute absolute 3D world position and realtime orbit/connection lines for an orbital child:
+	 * - N=1 (Single Parent): Circular orbit parallel to XY plane around parent P(x, y, z).
+	 * - N=2 (Dual Parent): 3D Elliptical orbit with parents P1 & P2 as Foci in 3D space (when dualParentOvalOrbit enabled).
+	 * - N>=3 (Multi Parent): Circular orbit centered at Center of Mass (Centroid) of all parents.
+	 * - Realtime dynamic updates of Orbit Path LineLoop & Parent-Child Connection Lines per frame.
+	 */
+	private updateChildWorldPosition(childId: string): void {
+		const child = this.orbitalChildren.get(childId);
+		if (!child) return;
+
+		const parentPositions = this.getParentWorldPositions(child.parentIds);
+		if (parentPositions.length === 0) return;
+
+		const numParents = parentPositions.length;
+		let x = 0, y = 0, z = 0;
+		const tracePoints: THREE.Vector3[] = [];
+		const segs = 64;
+
+		if (numParents === 1) {
+			// N=1: Circular orbit parallel to XZ plane around single parent P(x, y, z)
+			const p = parentPositions[0]!;
+REPLACEMENT CONTENT:
+	private getParentLocalPositions(parentIds: string[]): { x: number; y: number; z: number }[] {
+		const positions: { x: number; y: number; z: number }[] = [];
+		for (const pid of parentIds) {
+			const pos = this.getNodeLocalPosition(pid);
+			if (pos) {
+				positions.push(pos);
+			}
+		}
+		return positions;
+	}
+
+	getNodeLocalPosition(nodeId: string): { x: number; y: number; z: number } | null {
+		const forceNode = this.forceNodes.get(nodeId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const forceObj = forceNode ? (forceNode as any).__threeObj : null;
+		if (forceObj && forceObj.position) {
+			return { x: forceObj.position.x, y: forceObj.position.y, z: forceObj.position.z };
+		}
+		if (forceNode && forceNode.x !== undefined && forceNode.y !== undefined) {
+			return { x: forceNode.x, y: forceNode.y, z: forceNode.z ?? 0 };
+		}
+
+		const orbChild = this.orbitalChildren.get(nodeId);
+		if (orbChild && orbChild.lod && orbChild.lod.position) {
+			return { x: orbChild.lod.position.x, y: orbChild.lod.position.y, z: orbChild.lod.position.z };
+		}
+
+		return null;
+	}
+
+	/**
+	 * Compute absolute 3D world position and realtime orbit/connection lines for an orbital child:
+	 * - N=1 (Single Parent): Circular orbit parallel to XY plane around parent P(x, y, z).
+	 * - N=2 (Dual Parent): 3D Elliptical orbit with parents P1 & P2 as Foci in 3D space (when dualParentOvalOrbit enabled).
+	 * - N>=3 (Multi Parent): Circular orbit centered at Center of Mass (Centroid) of all parents.
+	 * - Realtime dynamic updates of Orbit Path LineLoop & Parent-Child Connection Lines per frame.
+	 */
+	private updateChildWorldPosition(childId: string): void {
+		const child = this.orbitalChildren.get(childId);
+		if (!child) return;
+
+		const parentPositions = this.getParentLocalPositions(child.parentIds);
+		if (parentPositions.length === 0) return;
+
+		const numParents = parentPositions.length;
+		let x = 0, y = 0, z = 0;
+		const tracePoints: THREE.Vector3[] = [];
+		const segs = 64;
+
+		if (numParents === 1) {
+			// N=1: Circular orbit parallel to XZ plane around single parent P(x, y, z)
+			const p = parentPositions[0]!;
+--------------------------------------------------
