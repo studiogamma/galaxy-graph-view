@@ -4,6 +4,10 @@
 	"description": "Obsidian plugin — visualize notes as a recursive solar system",
 	"main": "main.js",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/studiogamma/galaxy-orbit-view.git"
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
