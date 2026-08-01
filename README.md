@@ -5,7 +5,7 @@
 
 # Galaxy
 
-**Galaxy** is an Obsidian plugin that visualizes your vault as an orbital 3D galaxy, modeling your notes as orbiting nodes.
+**Galaxy** is an Obsidian plugin that visualizes your vault as an **orbital 3D galaxy**, modeling your notes as orbiting nodes.
 
 ---
 
